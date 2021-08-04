@@ -1,0 +1,555 @@
+# This workflow installs the latest version of Terraform CLI and configures the Terraform CLI configuration file
+# with an API token for Terraform Cloud (app.terraform.io). On pull request events, this workflow will run
+# `terraform init`, `terraform fmt`, and `terraform plan` (speculative plan via Terraform Cloud). On push events
+# to the master branch, `terraform apply` will be executed.
+#
+# Documentation for `hashicorp/setup-terraform` is located here: https://github.com/hashicorp/setup-terraform
+#
+# To use this workflow, you will need to complete the following setup steps.
+#
+# 1. Create a `main.tf` file in the root of this repository with the `remote` backend and one or more resources defined.
+#   Example `main.tf`:
+#     # The configuration for the `remote` backend.
+#     terraform {
+#       backend "remote" {
+#         # The name of your Terraform Cloud organization.
+#         organization = "example-organization"
+#
+#         # The name of the Terraform Cloud workspace to store Terraform state files in.
+#         workspaces {
+#           name = "example-workspace"
+#         }
+#       }
+#     }
+#
+#     # An example resource that does nothing.
+#     resource "null_resource" "example" {
+#       triggers = {
+#         value = "A example resource that does nothing!"
+#       }
+#     }
+#
+#
+# 2. Generate a Terraform Cloud user API token and store it as a GitHub secret (e.g. TF_API_TOKEN) on this repository.
+#   Documentation:
+#     - https://www.terraform.io/docs/cloud/users-teams-organizations/api-tokens.html
+#     - https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets
+#
+# 3. Reference the GitHub secret in step using the `hashicorp/setup-terraform` GitHub Action.
+#   Example:
+#     - name: Setup Terraform
+#       uses: hashicorp/setup-terraform@v1
+#       with:
+#         cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+name: 'Terraform'
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    environment: production
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Plan
+      run: terraform plan
+
+      # On push to master, build or change infrastructure according to Terraform configuration files
+      # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      run: terraform apply -auto-approve
+- name: Terraform Apply for GorillaStack
+  # You may pin to the exact commit or the version.
+  # uses: GorillaStack/github-action-apply-on-merge@71fab58db0a839b1e9b34e87601a5e4347c52c88
+  uses: GorillaStack/github-action-apply-on-merge@v0.1.0
+  with:
+    # The action type (currently "validate" and "apply" are available)
+    action: # default is validate
+    # The name of the tfstate bucket stack
+    stack_name: # default is github-actions-gorillastack-tfstate
+    # The region in which you deployed the tfstate bucket stack
+    aws_default_region: # default is us-east-1
+    # The AWS Access Key Id for the user with privileges to access the tfstate bucket
+    aws_access_key_id: # default is defaulted-for-everything-but-apply
+    # The AWS Secret Access Key for the user with privileges to access the tfstate bucket
+    aws_secret_access_key: # default is defaulted-for-everything-but-apply
+    # GorillaStack API Key, which is read-write or read-only, tied to your user identity
+    gorillastack_api_key: # default is defaulted-for-everything-but-apply
+    # GorillaStack Team Id, sets context of which team/tenant you are targeting
+    gorillastack_team_id: # default is defaulted-for-everything-but-apply
+    - name: Terraform-Lint
+  # You may pin to the exact commit or the version.
+  # uses: actionshub/terraform-lint@0a86dd0b510e5fd6ab5b13179d6979dc82e5cb8e
+  uses: actionshub/terraform-lint@1.0.0
+  - name: terraform-dependabot
+  # You may pin to the exact commit or the version.
+  # uses: patrickjahns/dependabot-terraform-action@b324345fbe00d33503689faa2a4207b79fbe9748
+  uses: patrickjahns/dependabot-terraform-action@v1.1.0
+  with:
+    # Where to look for terraform files to check for dependency upgrades. The directory is relative to the repository's root. Multiple paths can be provided by splitting them with a new line. Example:
+  directory: |
+    /path/to/first/module
+    /path/to/second/module
+
+    directory: # optional, default is /
+    # Branch to create pull requests against. By default your repository's default branch is used.
+
+    target_branch: # optional
+    # Auth token used to push the changes back to github and create the pull request with. [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
+
+    token: # optional, default is ${{ github.token }}
+    # Auth token used for checking terraform dependencies that are from github repositories. Token requires read access to all modules that you want to automatically check for updates [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
+
+    github_dependency_token: # optional, default is ${{ github.token }}
+    - name: Terraform Plugins
+  # You may pin to the exact commit or the version.
+  # uses: jasonwalsh/terraform-plugins@73f1870abbda4f217e67c8faa3e2f873476c9a63
+  uses: jasonwalsh/terraform-plugins@v1
+  with:
+    # A list of plugin URLs
+    plugins: # optional, default is 
+    - name: terraform-docs
+  # You may pin to the exact commit or the version.
+  # uses: Dirrk/terraform-docs@26b70436ceceba0a62c6b083d67c0796ea89bdeb
+  uses: Dirrk/terraform-docs@v1.0.8
+  with:
+    # Directories of terraform modules to generate docs for seperated by commas (conflicts with atlantis/find dirs)
+    tf_docs_working_dir: # optional, default is .
+    # Generate directories by parsing an atlantis formatted yaml to enable provide the file name to parse (eg atlantis.yaml)
+    tf_docs_atlantis_file: # optional, default is disabled
+    # Generate directories by running find ./tf_docs_find_dir -name *.tf
+    tf_docs_find_dir: # optional, default is disabled
+    # File in module directory where the docs should be placed
+    tf_docs_output_file: # optional, default is USAGE.md
+    # Generate document or table
+    tf_docs_content_type: # optional, default is table
+    # Indention level of Markdown sections [1, 2, 3, 4, 5]
+    tf_docs_indention: # optional, default is 2
+    # Additional args to pass to the command see https://github.com/segmentio/terraform-docs/tree/master/docs
+    tf_docs_args: # optional, default is 
+    # Method should be one of (replace/inject/print) where replace will replace the tf_docs_output_file, inject will inject the content between start and close delims and print will just print the output
+    tf_docs_output_method: # optional, default is inject
+    # If true it will commit and push the changes
+    tf_docs_git_push: # optional, default is false
+    # Commit message
+    tf_docs_git_commit_message: # optional, default is terraform-docs: automated action
+    # When provided will be used as the template if/when the OUTPUT_FILE does not exist
+    tf_docs_template: # optional, default is # Usage
+<!--- BEGIN_TF_DOCS --->
+<!--- END_TF_DOCS --->
+- name: terraform-fmt
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-fmt@80e2fe31f8db99ea0e0e907478e6ce05a99af809
+  uses: dflook/terraform-fmt@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    - name: terraform-check
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-check@e9d2100beebce36876fc75e5774424bb54ee97cb
+  uses: dflook/terraform-check@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    # Name of the terraform workspace
+    workspace: # optional, default is default
+    # Comma separated list of backend configs to set, e.g. 'foo=bar'
+    backend_config: # optional
+    # Path to a backend config file"
+    backend_config_file: # optional
+    # Comma separated list of vars to set, e.g. 'foo=bar'
+    var: # optional
+    # Comma separated list of var file paths
+    var_file: # optional
+    # Limit the number of concurrent operations
+    parallelism: # optional, default is 0
+    - name: Run Terraform
+  # You may pin to the exact commit or the version.
+  # uses: sarathkrish/invoke-terraform-run-api@a213e5ca9038ef01f5e060b7d183a87f4d7f00f4
+  uses: sarathkrish/invoke-terraform-run-api@v1.0
+  with:
+    # Terraform workspace name
+    workSpaceName: 
+    # Terraform organization Name
+    organizationName: 
+    # Terraform Token
+    terraformToken: 
+    # Terraform Host Name
+    terraformHost: 
+    # Specifies if this plan is a destroy plan, which will destroy all provisioned resources
+    isDestroy: 
+    # Specifies the message to be associated with this run.
+    message: 
+    - name: Terraform destroy
+  # You may pin to the exact commit or the version.
+  # uses: daniyalj/terraform-destroy-actions@3e80f2468d944ef9f43f42d3fbd6012addc0b311
+  uses: daniyalj/terraform-destroy-actions@v2
+  with:
+    # In the format of <org>
+    org_name: # default is john
+    # In the format of <repo>
+    repo_name: # default is doe
+    - name: terraform-plan
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-plan@ad4aa222aa295ada0d4efe338aeeb0fca8e626ea
+  uses: dflook/terraform-plan@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    # Name of the terraform workspace
+    workspace: # optional, default is default
+    # Comma separated list of backend config values to set, e.g. 'foo=bar'
+    backend_config: # optional
+    # Path to a backend config file
+    backend_config_file: # optional
+    # Comma separated list of vars to set, e.g. 'foo=bar'
+    var: # optional
+    # Comma separated list of var file paths
+    var_file: # optional
+    # Limit the number of concurrent operations
+    parallelism: # optional, default is 0
+    # A friendly name for this plan
+    label: # optional, default is 
+    # Add the plan to a GitHub PR
+    add_github_comment: # optional, default is true
+    - name: terraform-version
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-version@8d49b0f88d55727952e3717bace1924a2906bf02
+  uses: dflook/terraform-version@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    - name: terraform-validate
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-validate@ae1bdb703064ad29842938c230cbb2bfecd155e2
+  uses: dflook/terraform-validate@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    - name: terraform-output
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-output@00e9b1d55923b433370b21d5c0830cc11d694bd9
+  uses: dflook/terraform-output@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    # Name of the terraform workspace
+    workspace: # optional, default is default
+    # Comma separated list of backend configs to set, e.g. 'foo=bar'
+    backend_config: # optional
+    # Path to a backend config file
+    backend_config_file: # optional
+    - name: terraform-apply
+  # You may pin to the exact commit or the version.
+  # uses: dflook/terraform-apply@27cd16ab1a83b052d18d1619736a220ddc6ed3f0
+  uses: dflook/terraform-apply@v1.4.1
+  with:
+    # Path to the terraform configuration
+    path: 
+    # Name of the terraform workspace
+    workspace: # optional, default is default
+    # Comma separated list of backend configs to set, e.g. 'foo=bar'
+    backend_config: # optional, default is 
+    # Path to a backend config file
+    backend_config_file: # optional, default is 
+    # Comma separated list of vars to set, e.g. 'foo=bar'
+    var: # optional, default is 
+    # Comma separated list of var file paths
+    var_file: # optional, default is 
+    # Limit the number of concurrent operations
+    parallelism: # optional, default is 0
+    # A friendly name for this plan
+    label: # optional, default is 
+    # Automatically approve and apply plan
+    auto_approve: # optional
+    # Comma separated list of targets to apply against, e.g. 'kubernetes_secret.tls_cert_public,kubernetes_secret.tls_cert_private' NOTE: this argument only takes effect if auto_approve is also set.
+    target: # optional, default is 
+    - name: Install Terraform
+  # You may pin to the exact commit or the version.
+  # uses: little-core-labs/install-terraform@1e577535d279f1999a5abf60337ddc3ff225e79d
+  uses: little-core-labs/install-terraform@v2.0.0
+  with:
+    # Version of terraform to download
+    version: 
+    - name: Terraform Controller
+  # You may pin to the exact commit or the version.
+  # uses: emvaldes/terraform-controller@215e99338eb7a697fd3d120ccad83c693f7c14f7
+  uses: emvaldes/terraform-controller@v1.0
+  with:
+    # Terraform AWS Access Key-ID
+    aws-access-key-id: # optional
+    # Terraform AWS Default Account
+    aws-default-account: # optional
+    # Terraform AWS Default Profile
+    aws-default-profile: # optional
+    # Terraform AWS Default Region
+    aws-default-region: # optional
+    # Terraform AWS Secret Access Key
+    aws-secret-access-key: # optional
+    # Backup Terraform Infrastructure
+    backup-terraform: # optional
+    # Terraform-Controller functions
+    controller-functions: # optional, default is action.functions
+    # Deploy Terraform Infrastructure
+    deploy-terraform: # optional
+    # Destroy Terraform Infrastructure
+    destroy-terraform: # optional
+    # Define AWS DynamoDB Default Region
+    dynamodb-default-region: # optional, default is us-east-1
+    # Define AWS DynamoDB GitHub Table
+    dynamodb-github-table: # optional, default is github-pipelines
+    # Define AWS DynamoDB Terraform Table
+    dynamodb-terraform-table: # optional, default is terraform-pipelines
+    # Manage-Terraform template (script)
+    manage-terraform-script: # optional, default is manage-terraform.shell
+    # Terraform Private KeyPair-File
+    private-keypair-file: # optional, default is .ssh/id_rsa
+    # Terraform Private Key-Name
+    private-keypair-name: # optional
+    # Provision Terraform Provisioning
+    provision-terraform: # optional
+    # Manage-Profile GitHub Repository
+    repository--manage-profiles: # optional, default is emvaldes/manage-profiles
+    # Terraform-Controller GitHub Repository
+    repository--terraform-controller: # optional, default is emvaldes/terraform-controller
+    # Restore Terraform AWS Account
+    restore-account: # optional
+    # Restore Terraform SHA-Index
+    restore-index: # optional
+    # Restore Terraform KeyPair-File
+    restore-keypair-file: # optional, default is .ssh/id_rsa
+    # Restore Terraform Project
+    restore-project: # optional
+    # Restore Terraform AWS Region
+    restore-region: # optional
+    # Restore Terraform SHA Index
+    restore-shaindex: # optional, default is 
+    # Restore Terraform Infrastructure
+    restore-terraform: # optional
+    # Restore Terraform Workspace
+    restore-workspace: # optional
+    # Define Route53 Sub-Domain
+    route53-subdomain: # optional
+    # Default AWS S3 Bucket Name-Prefix
+    s3bucket-nameset: # optional, default is terraform--states--
+    # Default AWS S3 Default Region
+    s3bucket-default-region: # optional, default is us-east-1
+    # Define Terraform Container
+    target-container: # optional
+    # Define Terraform Time-Stamp
+    target-timestamp: # optional
+    # Define Terraform Workspace
+    target-workspace: # optional
+    # Define Terraform Configuration
+    terraform-config: # optional
+    # Define Terraform Input Parameters
+    terraform-input-params: # optional
+    # Define Terraform Input Variables
+    terraform-input-tfvars: # optional
+    # Define Terraform Planfile Name
+    terraform-planfile: # optional, default is terraform
+    # Define Terraform System-State
+    terraform-tfstate: # optional
+    # Upgrade Terraform Providers
+    upgrade-providers: # optional
+    # Validate Terraform Formatting
+    validate-formatting: # optional, default is true
+    # Define Terraform Loglevel
+    terraform-loglevel: # optional
+    - name: terraform-compliance
+  # You may pin to the exact commit or the version.
+  # uses: terraform-compliance/github_action@54589f925bd57b0d72e94335b3dbd2082af47c19
+  uses: terraform-compliance/github_action@0.2.0
+  with:
+    # The output of terraform plan (in json)
+    plan: # optional
+    # The URL that is used for terraform-compliance features (without 'git:' prefix)
+    features: # optional
+    # Stops executing any more steps in a scenario on first failure.
+    quit-early: # optional
+    # Skip all the tests that is failed, but giving proper failure message
+    no-failure: # optional
+    # Do not output any scenarios, just write results or failures
+    silent: # optional
+    # SSH Private key that will be use on git authentication.
+    identity: # optional
+    # Speficic terraform-compliance version to be used.
+    version: # optional
+    - name: Terraform action
+  # You may pin to the exact commit or the version.
+  # uses: Yellow-Box-Software/terraform-action@61a7921ef907bd31c5adefbb56b54970dbdfbba3
+  uses: Yellow-Box-Software/terraform-action@v2.5
+  with:
+    # Terraform CLI arguments
+    args: # default is --help
+    - name: Terraform installer
+  # You may pin to the exact commit or the version.
+  # uses: autero1/action-terraform@56b39408e1db66907b7a2b91d8949f26ae7fef67
+  uses: autero1/action-terraform@v1.0.1
+  with:
+    # Terraform version to install
+    terraform_version: 
+    - name: Setup Terraform environment
+  # You may pin to the exact commit or the version.
+  # uses: marocchino/setup-terraform@cc5875bf9e2a7632bde4554d23dc7a62c28d3d5d
+  uses: marocchino/setup-terraform@v1.0.1
+  with:
+    # The terraform version to download (if necessary) and use. Example: 0.12.13
+    version: # default is 0.12.13
+    - name: Terraform Apply for AWS
+  # You may pin to the exact commit or the version.
+  # uses: kciter/terraform-apply-for-aws-action@b7ccf000a4fc8f50b370e3806593065da07634a5
+  uses: kciter/terraform-apply-for-aws-action@v2
+  with:
+    # The AWS access key id
+    access_key_id: 
+    # The AWS secret access key
+    secret_access_key: 
+    # The AWS default region
+    region: 
+    # Comma-separated string of Terraform variables
+    variables: # optional, default is 
+    # Path to Terraform directory, defaults to the working directory
+    path: # optional, default is .
+    - name: setup-terraform-credentials
+  # You may pin to the exact commit or the version.
+  # uses: hfuss/setup-terraform-credentials@583329fd666ed7738bbff86537edf46192a29efe
+  uses: hfuss/setup-terraform-credentials@v1alpha
+  with:
+    # input description here
+    myInput: # optional, default is default value if applicable
+    - name: Execute Terraform commands
+  # You may pin to the exact commit or the version.
+  # uses: KhannaAbhinav/terraform-action@1f1bf59de8d94d0c4e05bc06cf54b0180e6e7e19
+  uses: KhannaAbhinav/terraform-action@v2
+  with:
+    # Terraform Version
+    version: # optional, default is default
+    # Terraform Command to execute
+    command: 
+    # input to the Terraform command
+    params: # optional
+    - name: Execute Terraform commands
+  # You may pin to the exact commit or the version.
+  # uses: KhannaAbhinav/terraform-action@1f1bf59de8d94d0c4e05bc06cf54b0180e6e7e19
+  uses: KhannaAbhinav/terraform-action@v2
+  with:
+    # Terraform Version
+    version: # optional, default is default
+    # Terraform Command to execute
+    command: 
+    # input to the Terraform command
+    params: # optional
+    - name: Azure Terraform Setup
+  # You may pin to the exact commit or the version.
+  # uses: fluffy-bunny/action-docker-azure-terraform-setup@89157cd61c9bc4b9681f34cf9804c71076a6a7d9
+  uses: fluffy-bunny/action-docker-azure-terraform-setup@v0.2-alpha
+  with:
+    # short-name
+    shortName: # default is 
+    # location
+    location: # default is 
+    # AZURE_CREDENTIALS secrets compliant
+    creds: # default is 
+    # key value that az cli expects
+    tags: # default is 
+    - name: Create Terraform Workspace
+  # You may pin to the exact commit or the version.
+  # uses: sarathkrish/create-terraform-workspace@d971caab5ffb8217edb7b6adfc505d8a9f3e0273
+  uses: sarathkrish/create-terraform-workspace@v1.1
+  with:
+    # Terraform workspace name
+    workSpaceName: 
+    # Terraform organization Name
+    organizationName: 
+    # Terraform Token
+    terraformToken: 
+    - name: terraform-lint-with-diff
+  # You may pin to the exact commit or the version.
+  # uses: alexnorell/terraform-lint@01ed66aa3529d21e3f90ece019808c81c91a3bfc
+  uses: alexnorell/terraform-lint@v1.0.0
+  - name: dnx-terraform-docs
+  # You may pin to the exact commit or the version.
+  # uses: DNXLabs/terraform-docs@f6b9e5b3bdda158eec59b41918e8d0a7d015e8ed
+  uses: DNXLabs/terraform-docs@v1.0.0
+  with:
+    # Directories of terraform modules to generate docs for seperated by commas (conflicts with atlantis/find dirs)
+    tf_docs_working_dir: # optional, default is .
+    # Generate directories by parsing an atlantis formatted yaml to enable provide the file name to parse (eg atlantis.yaml)
+    tf_docs_atlantis_file: # optional, default is disabled
+    # Generate directories by running find ./tf_docs_find_dir -name *.tf
+    tf_docs_find_dir: # optional, default is disabled
+    # File in module directory where the docs should be placed
+    tf_docs_output_file: # optional, default is USAGE.md
+    # Generate document or table
+    tf_docs_content_type: # optional, default is table
+    # Indention level of Markdown sections [1, 2, 3, 4, 5]
+    tf_docs_indention: # optional, default is 2
+    # Additional args to pass to the command see https://github.com/segmentio/terraform-docs/tree/master/docs
+    tf_docs_args: # optional, default is 
+    # Method should be one of (replace/inject/print) where replace will replace the tf_docs_output_file, inject will inject the content between start and close delims and print will just print the output
+    tf_docs_output_method: # optional, default is inject
+    # If true it will commit and push the changes
+    tf_docs_git_push: # optional, default is false
+    # Commit message
+    tf_docs_git_commit_message: # optional, default is terraform-docs: automated action
+    # When provided will be used as the template if/when the OUTPUT_FILE does not exist
+    tf_docs_template: # optional, default is # Usage
+<!--- BEGIN_TF_DOCS --->
+<!--- END_TF_DOCS --->
+- name: terraform-auto-document
+  # You may pin to the exact commit or the version.
+  # uses: richardjkendall/tf-auto-document.action@cec2736238bea866c6632c62ad39ddfece5a30df
+  uses: richardjkendall/tf-auto-document.action@v0.07
+  with:
+    # Folder inside the repository which contains the terraform modules
+    modulesFolder: # optional, default is modules
+    - name: Terraform Workspace setup
+  # You may pin to the exact commit or the version.
+  # uses: recarnot/terraform-github-workspace-setup-action@50c16eb6efb5b7e48d7a24c9a7f3a79db5c3a056
+  uses: recarnot/terraform-github-workspace-setup-action@v1.0.12
+  with:
+    # Terraform hostname
+    hostname: # default is app.terraform.io
+    # Terraform Organization name
+    organization: 
+    # Terraform Workspace name
+    workspace: 
+    # Terraform API token
+    token: 
+    # Variables to create in workspace
+    vars: # optional, default is 
+    
+
+    
